@@ -5,6 +5,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
 from python_freeipa import ClientMeta
+from python_freeipa import exceptions
 
 json_keyfile = 'umrellio-test-82e357d92ba9.json'
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -49,26 +50,8 @@ def create_result_table(user_map):
         for cell, value in cell_updates.items():
             target_worksheet.update_acell(cell, value)
 
-
-
-def main():
-    client = gspread.authorize(credentials)
-
-    spreadsheet = client.open('umrellio test')
-    worksheet = spreadsheet.worksheet('data')
-
-    data = worksheet.get_all_values()
-    data = data[1:]
-    print(data)
-    user_map = {}
-
-
-    client = ClientMeta('ipa.demo1.freeipa.org')
-    client.login('admin', 'Secret123')
-    user = client.user_show('test3')
-    print(user)
-
-
+def slack_info():
+    
     load_dotenv()
 
     client = WebClient(os.getenv("SLACK_BOT_TOKEN"))
@@ -96,7 +79,40 @@ def main():
 
         user_info['billing_active'] = 'active' if billing_info.get('billing_active', False) else 'not active'
 
-    create_result_table(updated_user_map)
+def main():
+    client = gspread.authorize(credentials)
+
+    spreadsheet = client.open('umrellio test')
+    worksheet = spreadsheet.worksheet('data')
+
+    data = worksheet.get_all_values()
+    data = data[1:]
+    client = ClientMeta('ipa.demo1.freeipa.org')
+    client.login('admin', 'Secret123')
+
+    for row in data:
+        id, firstname, lastname, email = row
+        username = firstname.lower() + '.' + lastname[0].lower()
+
+        try:
+            user = client.user_show(username)
+            print(f"user {username} already exists")
+        except exceptions.NotFound:
+            client.user_add(username, firstname, lastname, email)
+            print(f"created user {username}")
+        
+        if int(id) in [3, 5]: 
+            try:
+                client.user_disable(username)
+                print(f"user {username} status set to disable")
+            except exceptions.AlreadyInactive:
+                print(f"user {username} is already disabled")
+        
+
+
+
+
+    #create_result_table(updated_user_map)
 
 if __name__ == "__main__":
     main()
