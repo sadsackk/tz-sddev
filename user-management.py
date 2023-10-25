@@ -44,11 +44,11 @@ def create_result_table(user_map):
             f'F{num}': user_info['status'],
             f'G{num}': user_info['slack_name'],
             f'H{num}': user_info['slack_id'],
-            f'I{num}': user_info['billing_active'],
+            f'I{num}': user_info['billing_status'],
         }
 
-        for cell, value in cell_updates.items():
-            target_worksheet.update_acell(cell, value)
+#        for cell, value in cell_updates.items():
+#            target_worksheet.update_acell(cell, value)
 
 
 def freeipa_user_handler(client, source_data, user_map):
@@ -99,15 +99,22 @@ def main():
     freeipa_user_handler(ipa_client, source_data, user_map)
     for user_id, user_info in user_map.items():
         username = user_info['username']
-        slack_user_info = next((user for user in slack_user_data['members'] if user['name'] == username), None)
-
-        if slack_user_info:
-            user_info['slack_id'] = slack_user_info['id']
-            user_info['slack_name'] = slack_user_info['real_name']
+        slack_member = next((user for user in slack_user_data['members'] if user['name'] == username), None)
+    
+        if slack_member:
+            user_info['slack_id'] = slack_member['id']
+            user_info['slack_name'] = slack_member['real_name']
 
         billing_info = slack_bill_data.get(user_id, {})
 
-        user_info['billing_active'] = billing_info.get('billing_active', False)  
+        user_info['billing_status'] = billing_info.get('billing_active', "not billed")
+
+
+        if 'slack_id' not in user_map[user_id]:
+            user_info['slack_id'] = '-'
+            user_info['slack_name'] = '-'
+            user_info['billing_status'] = '-'
+
 
     create_result_table(user_map)
 
