@@ -76,9 +76,7 @@ def main():
         checkUserCommand = f"ipa user-show {username} | grep disabled | awk '{{print $3}}'"
         status = subprocess.check_output(checkUserCommand, shell=True).decode("utf-8").strip()
 
-        if status == 'False':
-            status = 'Enabled'
-        else: status = 'Disabled'
+        status = 'Enabled' if status == 'False' else 'Disabled'
 
         getNameCommand = f"ipa user-show {username} | grep login | awk '{{print$3}}'"
         username = subprocess.check_output(getNameCommand, shell=True).decode("utf-8").strip()
@@ -112,7 +110,7 @@ def main():
 
         billing_info = bill_data.get(user_id, {})
 
-        user_info['billing_active'] = billing_info.get('billing_active', False)
+        user_info['billing_active'] = 'active' if billing_info.get('billing_active', False) else 'not active'
 
     create_result_table(updated_user_map)
 
