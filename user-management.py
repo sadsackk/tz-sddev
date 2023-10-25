@@ -50,47 +50,9 @@ def create_result_table(user_map):
         for cell, value in cell_updates.items():
             target_worksheet.update_acell(cell, value)
 
-def slack_info():
-    
-    load_dotenv()
 
-    client = WebClient(os.getenv("SLACK_BOT_TOKEN"))
-    client2 = WebClient(os.getenv("SLACK_USER_TOKEN"))
-
-    try:
-        data = client.users_list()
-        bill_data = client2.team_billableInfo()
-
-    
-    except SlackApiError as e:
-        print(f"Произошла ошибка: {e.response['error']}")
-
-    updated_user_map = user_map.copy()
-
-    for user_id, user_info in updated_user_map.items():
-        username = user_info['username']
-        data_user_info = next((user for user in data['members'] if user['name'] == username), None)
-
-        if data_user_info:
-            user_info['slack_id'] = data_user_info['id'] 
-            user_info['slack_name'] = data_user_info['real_name'] 
-
-        billing_info = bill_data.get(user_id, {})
-
-        user_info['billing_active'] = 'active' if billing_info.get('billing_active', False) else 'not active'
-
-def main():
-    client = gspread.authorize(credentials)
-
-    spreadsheet = client.open('umrellio test')
-    worksheet = spreadsheet.worksheet('data')
-
-    data = worksheet.get_all_values()
-    data = data[1:]
-    client = ClientMeta('ipa.demo1.freeipa.org')
-    client.login('admin', 'Secret123')
-
-    for row in data:
+def freeipa_user_handler(client, source_data, user_map):
+    for row in source_data:
         id, firstname, lastname, email = row
         username = firstname.lower() + '.' + lastname[0].lower()
 
@@ -107,12 +69,47 @@ def main():
                 print(f"user {username} status set to disable")
             except exceptions.AlreadyInactive:
                 print(f"user {username} is already disabled")
-        
+
+        status_info = client.user_status(username)['summary'].split(':')[1].strip()
+        status = "Disabled" if status_info == "True" else "Enabled"
+        username = user['result']['uid'][0]
+        user_map[int(id)] = {"firstname": firstname, "lastname": lastname, "email": email, "username": username, "status": status}
 
 
+def main():
+    client = gspread.authorize(credentials)
+    spreadsheet = client.open('umrellio test')
+    worksheet = spreadsheet.worksheet('data')
+    sh_data = worksheet.get_all_values()
+    source_data = sh_data[1:]
+    load_dotenv()
+    slack_bot_client = WebClient(os.getenv("SLACK_BOT_TOKEN"))
+    slack_user_client = WebClient(os.getenv("SLACK_USER_TOKEN"))
+    ipa_client = ClientMeta('ipa.demo1.freeipa.org')
+    ipa_client.login('admin', 'Secret123')
+    user_map = {}
+    slack_user_data = None
+    slack_bill_data = None
+    try:
+        slack_user_data = slack_bot_client.users_list()
+        slack_bill_data = slack_user_client.team_billableInfo()
+    except SlackApiError as e:
+        print(f"Произошла ошибка: {e.response['error']}")
 
+    freeipa_user_handler(ipa_client, source_data, user_map)
+    for user_id, user_info in user_map.items():
+        username = user_info['username']
+        slack_user_info = next((user for user in slack_user_data['members'] if user['name'] == username), None)
 
-    #create_result_table(updated_user_map)
+        if slack_user_info:
+            user_info['slack_id'] = slack_user_info['id']
+            user_info['slack_name'] = slack_user_info['real_name']
+
+        billing_info = slack_bill_data.get(user_id, {})
+
+        user_info['billing_active'] = billing_info.get('billing_active', False)  
+
+    create_result_table(user_map)
 
 if __name__ == "__main__":
     main()
