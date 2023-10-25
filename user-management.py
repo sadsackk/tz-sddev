@@ -1,10 +1,10 @@
 import gspread
 import os
-import subprocess
 from oauth2client.service_account import ServiceAccountCredentials
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
+from python_freeipa import ClientMeta
 
 json_keyfile = 'umrellio-test-82e357d92ba9.json'
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -59,30 +59,14 @@ def main():
 
     data = worksheet.get_all_values()
     data = data[1:]
-
+    print(data)
     user_map = {}
 
-    for row in data:
-        id, firstname, lastname, email = row
-        username = firstname.lower() + '.' + lastname[0].lower()
 
-        addUserCommand = f"ipa user-add {username} --first {firstname} --last {lastname} --email {email}"
-        subprocess.run(addUserCommand, shell=True)
-
-        if int(id) in [3, 5]:
-            disableUserCommand = f"ipa user-disable {username}"
-            subprocess.run(disableUserCommand, shell=True)
-
-        checkUserCommand = f"ipa user-show {username} | grep disabled | awk '{{print $3}}'"
-        status = subprocess.check_output(checkUserCommand, shell=True).decode("utf-8").strip()
-
-        status = 'Enabled' if status == 'False' else 'Disabled'
-
-        getNameCommand = f"ipa user-show {username} | grep login | awk '{{print$3}}'"
-        username = subprocess.check_output(getNameCommand, shell=True).decode("utf-8").strip()
-
-        user_map[id] = {"firstname": firstname, "lastname": lastname, "email": email, "username": username, "status": status}
-
+    client = ClientMeta('ipa.demo1.freeipa.org')
+    client.login('admin', 'Secret123')
+    user = client.user_show('test3')
+    print(user)
 
 
     load_dotenv()

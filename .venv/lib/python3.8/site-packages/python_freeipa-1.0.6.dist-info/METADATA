@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: python-freeipa
+Version: 1.0.6
+Summary: Lightweight FreeIPA client
+Home-page: https://python-freeipa.readthedocs.io/
+Author: OpenNode Team
+Author-email: info@opennodecloud.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Systems Administration :: Authentication/Directory
+Requires-Dist: requests
+Provides-Extra: tests
+Requires-Dist: responses ; extra == 'tests'
+
+python-freeipa is lightweight FreeIPA client.
+API documentation: https://python-freeipa.readthedocs.io/
+
+
