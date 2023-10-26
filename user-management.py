@@ -11,11 +11,35 @@ json_keyfile = 'umrellio-test-82e357d92ba9.json'
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
 
+#todo:
+#обновление только нужных строк в результирующей таблице
+#добавит режимы работы скрипта
+#может быть добавить контестное меню
+
+def delete_table_row(row):
+    print()
+
 def create_result_table(user_map):
     client = gspread.authorize(credentials)
 
     target_spreadsheet = client.open('test2')
     target_worksheet = target_spreadsheet.get_worksheet(0)
+
+    tw = target_worksheet.get_all_values()
+    tw = tw[1:]
+    rows_to_delete = None
+    for id in range(len(tw)):
+        tw_full_name = f'{tw[id][1]} {tw[id][2]}'
+        match_found = False
+        for id2 in range(len(user_map)):
+            um_full_name = f'{user_map[id2 + 1]["firstname"]} {user_map[id2 + 1]["lastname"]}'
+            if tw_full_name == um_full_name:
+                match_found = True
+                break
+        if not match_found:
+            print(id)
+            target_worksheet.delete_rows(id+2)
+            
 
     header_data = {
         'A1': 'ID',
@@ -50,12 +74,12 @@ def create_result_table(user_map):
         for cell, value in cell_updates.items():
             target_worksheet.update_acell(cell, value)
 
-
 def freeipa_user_handler(client, source_data, user_map):
 
     for row in source_data:
         id, firstname, lastname, email = row
         username = firstname.lower() + '.' + lastname[0].lower()
+        new_user = None
         try:
             new_user = client.user_show(username)
             print(f"user {username} already exists")
@@ -70,7 +94,8 @@ def freeipa_user_handler(client, source_data, user_map):
                 print(f"user {username} is already disabled")
         status_info = client.user_status(username)['summary'].split(':')[1].strip()
         status = "Disabled" if status_info == "True" else "Enabled"
-        username = new_user['result']['uid'][0]
+        if new_user is not None:
+            username = new_user['result']['uid'][0]
         user_map[int(id)] = {"firstname": firstname, "lastname": lastname, "email": email, "username": username, "status": status}
 
     for row in source_data:
@@ -89,8 +114,6 @@ def freeipa_user_handler(client, source_data, user_map):
         username = f'{parts[0].lower()}.{parts[1].lower()[0]}'
         client.user_del(username)
         print(f'user {username} deleted')
-        
-
 
 def slack_user_handler(slack_bot_client, slack_user_client, user_map):
     slack_user_data = None
@@ -113,12 +136,10 @@ def slack_user_handler(slack_bot_client, slack_user_client, user_map):
 
         user_info['billing_status'] = billing_info.get('billing_active', "not billed")
 
-
         if 'slack_id' not in user_map[user_id]:
             user_info['slack_id'] = '-'
             user_info['slack_name'] = '-'
             user_info['billing_status'] = '-'    
-
 
 def main():
     client = gspread.authorize(credentials)
@@ -134,9 +155,9 @@ def main():
     user_map = {}
 
     freeipa_user_handler(ipa_client, source_data, user_map)
-    #slack_user_handler(slack_bot_client, slack_user_client, user_map)
+    slack_user_handler(slack_bot_client, slack_user_client, user_map)
 
-    #create_result_table(user_map)
+    create_result_table(user_map)
 
 if __name__ == "__main__":
     main()
